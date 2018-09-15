@@ -105,9 +105,10 @@ def get_depth(leftLandmarks, rightLandmarks):
 		(x1, _) = p1
 		(x2, _) = p2
 		disparity = abs(x1 - x2)
-		depth = (f * baseline) / disparity
-		minDepth = min(minDepth, depth)
-		maxDepth = max(maxDepth, depth)
+		if disparity > 0:
+			depth = (f * baseline) / disparity
+			minDepth = min(minDepth, depth)
+			maxDepth = max(maxDepth, depth)
 	return (minDepth, maxDepth)
 
 def get_landmarks(frame, box):
