@@ -7,9 +7,10 @@ import time
 import cv2
 import dlib
 import numpy as np
+from scipy import stats
 from imutils import face_utils
 
-float_formatter = lambda x: "%.2f" % x
+float_formatter = lambda x: "%.1f" % x
 np.set_printoptions(formatter={'float_kind':float_formatter})
 
 # MIN_DISPARITY = 16
@@ -96,20 +97,34 @@ def get_faces(frame):
 		names.append(name)
 	return boxes, names
 
-def get_depth(leftLandmarks, rightLandmarks):
-	f = 760 			# lense focal length in pixels
-	baseline = 0.17 	# distance in m between the two cameras
-	minDepth = 1000000
-	maxDepth = 0
+def get_world_coordinates(leftLandmarks, rightLandmarks, leftBox):
+	# left camera's optical centre coordinates in pixels
+	cx = 324  
+	cy = 234
+
+	# lense focal length in pixels
+	fx = 764
+	fy = 760 			
+
+	# distance in metres between the two cameras
+	baseline = 0.17 	
+
+	depths = []
 	for (p1, p2) in zip(leftLandmarks, rightLandmarks):
 		(x1, _) = p1
 		(x2, _) = p2
 		disparity = abs(x1 - x2)
 		if disparity > 0:
-			depth = (f * baseline) / disparity
-			minDepth = min(minDepth, depth)
-			maxDepth = max(maxDepth, depth)
-	return (minDepth, maxDepth)
+			depth = (fx * baseline) / disparity
+			depths.append(depth)
+
+	(top, right, bottom, left) = leftBox
+	u = (right + left) // 2
+	v = (top + bottom) // 2
+	Z = stats.tmean(depths)
+	X = Z / fx * (u - cx)
+	Y = Y = Z / fy * (v - cy)
+	return (X, Y, Z)
 
 def get_landmarks(frame, box):
 	(top, right, bottom, left) = box
@@ -117,7 +132,7 @@ def get_landmarks(frame, box):
 	landmarks = face_utils.shape_to_np(landmarks)
 	return landmarks
 
-def draw_face_details(frame, box, name, landmarks, depth):
+def draw_face_details(frame, box, name, landmarks, worldCoordinates):
 	(top, right, bottom, left) = box
 
 	# loop over the (x, y)-coordinates for the facial landmarks
@@ -130,9 +145,11 @@ def draw_face_details(frame, box, name, landmarks, depth):
 		(0, 255, 0), 2)
 	y = top - 15 if top - 15 > 15 else top + 15
 
-	minDepth, maxDepth = depth
-	depthString = 'depth: ' + str(float_formatter(minDepth)) + ' to ' + str(float_formatter(maxDepth)) + 'm'
-	cv2.putText(frame, name + ', ' + depthString, (left, y), cv2.FONT_HERSHEY_SIMPLEX,
+	X, Y, Z = worldCoordinates
+	depthString = '(' + str(float_formatter(X)) + 'm,' + str(float_formatter(Y)) + 'm,' + str(float_formatter(Z)) + 'm)'
+	cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX,
+		0.75, (0, 255, 0), 2)
+	cv2.putText(frame, depthString, (left, y - 25), cv2.FONT_HERSHEY_SIMPLEX,
 		0.75, (0, 255, 0), 2)
 	
 	return frame
@@ -146,11 +163,10 @@ def draw_faces(leftFrame, rightFrame):
 		leftLandmarks = get_landmarks(leftFrame, leftBox)
 		rightLandmarks = get_landmarks(rightFrame, rightBox)
 
-		depth = get_depth(leftLandmarks, rightLandmarks)
+		worldCoordinates = get_world_coordinates(leftLandmarks, rightLandmarks, leftBox)		
 
-		leftFrame = draw_face_details(leftFrame, leftBox, leftName, leftLandmarks, depth)
-		rightFrame = draw_face_details(rightFrame, rightBox, rightName, rightLandmarks, depth)
-	
+		leftFrame = draw_face_details(leftFrame, leftBox, leftName, leftLandmarks, worldCoordinates)
+		rightFrame = draw_face_details(rightFrame, rightBox, rightName, rightLandmarks, worldCoordinates)
 	return leftFrame, rightFrame
 
 ap = argparse.ArgumentParser()
