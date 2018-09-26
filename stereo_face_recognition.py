@@ -60,8 +60,7 @@ predictor_model = "shape_predictor_68_face_landmarks.dat"
 predictor = dlib.shape_predictor(predictor_model)
 
 def get_faces(frame):
-	# convert the input frame from BGR to RGB then resize it to have
-	# a width of 750px (to speedup processing)
+	# convert the input frame from BGR to RGB
 	rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
 	# detect the (x, y)-coordinates of the bounding boxes
