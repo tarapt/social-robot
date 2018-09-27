@@ -149,17 +149,21 @@ ap.add_argument("-d", "--detection-method", type=str, default="cnn",
 	help="face detection model to use: either `hog` or `cnn`")
 ap.add_argument("-t", "--tracker", type=str, default="csrt",
 	help="OpenCV object tracker type")
-ap.add_argument("-s", "--skip-frames", type=int, default=30,
+ap.add_argument("-s", "--skip-frames", type=int, default=20,
 	help="# of skip frames between detections")
 args = vars(ap.parse_args())
 
 data = pickle.loads(open(args["encodings"], "rb").read())
 
+# Should these be declared inside the loop locally
+# In that case, if face recognition fails like in the case of occlusion,
+# the tracking information won't be present to aid.
+leftBoundingBoxes = {}
+rightBoundingBoxes = {}
+
 names = set()
 leftTrackers = {}
 rightTrackers = {}
-leftBoundingBoxes = {}
-rightBoundingBoxes = {}
 left = cv2.VideoCapture(1)	
 right = cv2.VideoCapture(2)
 totalFrames = 0
@@ -176,6 +180,10 @@ while True:
 	timer = cv2.getTickCount()
 
 	if totalFrames % args["skip_frames"] == 0:
+		# names.clear()
+		# leftTrackers.clear()
+		# rightTrackers.clear()
+
 		leftBoxes, leftNames = get_faces(leftFrame)
 		rightBoxes, rightNames = get_faces(rightFrame)
 		names.update(leftNames)
@@ -213,22 +221,25 @@ while True:
 			if(leftTrackers.get(name) != None):
 				(success, box) = leftTrackers[name].update(leftFrame)
 				if(not success):
-					if(leftBoundingBoxes[name] != None):
-						print(name + " has gone from the left Frame.")
-						leftBoundingBoxes[name] = None
+					print(name + " couldn't be tracked in the left Frame. Use face recognition.")
 				else:
 					leftBoundingBoxes[name] = changeBoxFormat2(box)
 
 			if(rightTrackers.get(name) != None):
 				(success, box) = rightTrackers[name].update(rightFrame)
 				if(not success):
-					if(rightBoundingBoxes[name] != None):
-						print(name + " has gone from the right Frame.")
-						rightBoundingBoxes[name] = None
+					print(name + " couldn't be tracked in the right Frame. Use face recognition.")
 				else:
 					rightBoundingBoxes[name] = changeBoxFormat2(box)
 	
 	leftFrame, rightFrame = draw_faces(leftFrame, rightFrame, leftBoundingBoxes, rightBoundingBoxes, names)
+
+	# Calculate Frames per second (FPS)
+	fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+	# Display FPS on frame
+	cv2.putText(leftFrame, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+	cv2.putText(rightFrame, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+
 
 	cv2.imshow("Left Camera", leftFrame)
 	cv2.imshow("Right Camera", rightFrame)
