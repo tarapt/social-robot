@@ -24,12 +24,10 @@ OPENCV_OBJECT_TRACKERS = {
 }
  
 # initialize OpenCV's special multi-object tracker
-trackers = {}
+trackers = cv2.MultiTracker_create()
 
 print("[INFO] starting video stream...")
 vs = cv2.VideoCapture(0)	
-
-totalFrames = 0
 
 # loop over frames from the video stream
 while True:
@@ -43,18 +41,11 @@ while True:
     frame = imutils.resize(frame, width=600)
 
     # Start timer
-    timer = cv2.getTickCount()
-
-    if totalFrames % args["skip_frames"] == 0:
-        print("Use detection results")            
+    timer = cv2.getTickCount()        
 
     # grab the updated bounding box coordinates (if any) for each
     # object that is being tracked
     (success, boxes) = trackers.update(frame)
-
-    if not success:
-        print("Tracking failed")
-        break
 
     # Calculate Frames per second (FPS)
     fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
