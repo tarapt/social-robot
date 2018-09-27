@@ -24,7 +24,7 @@ OPENCV_OBJECT_TRACKERS = {
 }
  
 # initialize OpenCV's special multi-object tracker
-trackers = cv2.MultiTracker_create()
+trackers = {}
 
 print("[INFO] starting video stream...")
 vs = cv2.VideoCapture(0)	

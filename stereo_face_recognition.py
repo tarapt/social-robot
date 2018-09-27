@@ -13,48 +13,15 @@ from imutils import face_utils
 float_formatter = lambda x: "%.1f" % x
 np.set_printoptions(formatter={'float_kind':float_formatter})
 
-# MIN_DISPARITY = 16
-# NUM_DISPARITY = 112-MIN_DISPARITY
-# def getStereoSGBMObject():
-#     window_size = 3
-#     stereo = cv2.StereoSGBM_create(minDisparity = MIN_DISPARITY,
-#         numDisparities = NUM_DISPARITY,
-#         blockSize = 16,
-#         P1 = 8*3*window_size**2,
-#         P2 = 32*3*window_size**2,
-#         disp12MaxDiff = 1,
-#         uniquenessRatio = 10,
-#         speckleWindowSize = 100,
-#         speckleRange = 32
-#     )
-#     return stereo
-
-# stereoMatcher = getStereoSGBMObject()
-
-# def get3DScene(leftFrame, rightFrame):
-# 	grayLeft = cv2.cvtColor(leftFrame, cv2.COLOR_BGR2GRAY)
-# 	grayRight = cv2.cvtColor(rightFrame, cv2.COLOR_BGR2GRAY)
-# 	disparity = stereoMatcher.compute(grayLeft, grayRight).astype(np.float32) / 16.0
-# 	cv2.imshow('disparity', (disparity-MIN_DISPARITY)/NUM_DISPARITY)
-
-# 	h, w = leftFrame.shape[:2]
-# 	f = 760 # pixels
-# 	baseline = 0.15 # meters
-# 	Q = np.float32([[1, 0, 0,  -0.5*w],
-# 					[0, 1, 0,  -0.5*h],
-# 					[0, 0, 0,     f], 
-# 					[0, 0, -1.0/baseline,      0]])
-# 	# Q = np.float32([[ 1.00000000e+00,  0.00000000e+00,  0.00000000e+00, -4.01534975e+02],
-#  	# 				[ 0.00000000e+00,  1.00000000e+00,  0.00000000e+00, -2.48044674e+02],
-#  	# 				[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00, -4.28357378e+02],
-#  	# 				[ 0.00000000e+00,  0.00000000e+00,  1.50143709e-01, -0.00000000e+00]])
-# 	points = cv2.reprojectImageTo3D(disparity, Q)
-# 	return points
-
-# def get_coordinates(points, top, right, bottom, left):
-# 	x = int((right + left) / 2)
-# 	y = int((top + bottom) / 2)
-# 	return points[y][x]
+OPENCV_OBJECT_TRACKERS = {
+	"csrt": cv2.TrackerCSRT_create,
+	"kcf": cv2.TrackerKCF_create,
+	"boosting": cv2.TrackerBoosting_create,
+	"mil": cv2.TrackerMIL_create,
+	"tld": cv2.TrackerTLD_create,
+	"medianflow": cv2.TrackerMedianFlow_create,
+	"mosse": cv2.TrackerMOSSE_create
+}
 
 predictor_model = "shape_predictor_68_face_landmarks.dat"
 predictor = dlib.shape_predictor(predictor_model)
@@ -153,32 +120,49 @@ def draw_face_details(frame, box, name, landmarks, worldCoordinates):
 	
 	return frame
 
-def draw_faces(leftFrame, rightFrame):
-	leftBoxes, leftNames = get_faces(leftFrame)
-	rightBoxes, rightNames = get_faces(rightFrame)
-
+def draw_faces(leftFrame, rightFrame, leftBoxes, rightBoxes, names):
 	# loop over each face
-	for (leftBox, leftName, rightBox, rightName) in zip(leftBoxes, leftNames, rightBoxes, rightNames):
-		leftLandmarks = get_landmarks(leftFrame, leftBox)
-		rightLandmarks = get_landmarks(rightFrame, rightBox)
+	for name in names:
+		if(leftBoxes.get(name) != None and rightBoxes.get(name) != None):
+			leftLandmarks = get_landmarks(leftFrame, leftBoxes[name])
+			rightLandmarks = get_landmarks(rightFrame, rightBoxes[name])
 
-		worldCoordinates = get_world_coordinates(leftLandmarks, rightLandmarks, leftBox)		
+			worldCoordinates = get_world_coordinates(leftLandmarks, rightLandmarks, leftBoxes[name])		
 
-		leftFrame = draw_face_details(leftFrame, leftBox, leftName, leftLandmarks, worldCoordinates)
-		rightFrame = draw_face_details(rightFrame, rightBox, rightName, rightLandmarks, worldCoordinates)
+			# update the frames with the new information of the person 
+			leftFrame = draw_face_details(leftFrame, leftBoxes[name], name, leftLandmarks, worldCoordinates)
+			rightFrame = draw_face_details(rightFrame, rightBoxes[name], name, rightLandmarks, worldCoordinates)
 	return leftFrame, rightFrame
+
+def changeBoxFormat1(box):
+	(top, right, bottom, left) = box
+	return (left, top, right - left, bottom - top)
+
+def changeBoxFormat2(box):
+	(x, y, w, h) = [int(v) for v in box]
+	return (y, x + w, y + h, x)
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-e", "--encodings", required=True,
 	help="path to serialized db of facial encodings")
 ap.add_argument("-d", "--detection-method", type=str, default="cnn",
 	help="face detection model to use: either `hog` or `cnn`")
+ap.add_argument("-t", "--tracker", type=str, default="csrt",
+	help="OpenCV object tracker type")
+ap.add_argument("-s", "--skip-frames", type=int, default=30,
+	help="# of skip frames between detections")
 args = vars(ap.parse_args())
 
 data = pickle.loads(open(args["encodings"], "rb").read())
 
+names = set()
+leftTrackers = {}
+rightTrackers = {}
+leftBoundingBoxes = {}
+rightBoundingBoxes = {}
 left = cv2.VideoCapture(1)	
 right = cv2.VideoCapture(2)
+totalFrames = 0
 
 while True:
 	if not (left.grab() and right.grab()):
@@ -188,12 +172,69 @@ while True:
 	_, leftFrame = left.retrieve()
 	_, rightFrame = right.retrieve()
 	
-	leftFrame, rightFrame = draw_faces(leftFrame, rightFrame)
+ 	# Start timer
+	timer = cv2.getTickCount()
+
+	if totalFrames % args["skip_frames"] == 0:
+		leftBoxes, leftNames = get_faces(leftFrame)
+		rightBoxes, rightNames = get_faces(rightFrame)
+		names.update(leftNames)
+		names.update(rightNames)
+		for (box, name) in zip(leftBoxes, leftNames):
+			leftBoundingBoxes[name] = box
+			if(leftTrackers.get(name) != None):
+				del leftTrackers[name]
+			tracker = OPENCV_OBJECT_TRACKERS[args["tracker"]]()
+			tracker.init(leftFrame, changeBoxFormat1(box))
+			leftTrackers[name] = tracker		
+		for (box, name) in zip(rightBoxes, rightNames):
+			rightBoundingBoxes[name] = box
+			if(rightTrackers.get(name) != None):
+				del rightTrackers[name]
+			tracker = OPENCV_OBJECT_TRACKERS[args["tracker"]]()
+			tracker.init(rightFrame, changeBoxFormat1(box))
+			rightTrackers[name] = tracker
+		
+		# don't do this:
+		# delete the trackers of those that are not present in the frame currently
+		# for name in names:
+		# 	if(name not in leftNames):
+		# 		if(leftTrackers.get(name) != None):
+		# 			del leftTrackers[name]
+		# 		if(leftBoundingBoxes.get(name) != None):
+		# 			del leftBoundingBoxes[name]
+		# 	if(name not in rightNames):
+		# 		if(rightTrackers.get(name) != None):
+		# 			del rightTrackers[name]
+		# 		if(rightBoundingBoxes.get(name) != None):
+		# 			del rightBoundingBoxes[name]
+	else:
+		for name in names:
+			if(leftTrackers.get(name) != None):
+				(success, box) = leftTrackers[name].update(leftFrame)
+				if(not success):
+					if(leftBoundingBoxes[name] != None):
+						print(name + " has gone from the left Frame.")
+						leftBoundingBoxes[name] = None
+				else:
+					leftBoundingBoxes[name] = changeBoxFormat2(box)
+
+			if(rightTrackers.get(name) != None):
+				(success, box) = rightTrackers[name].update(rightFrame)
+				if(not success):
+					if(rightBoundingBoxes[name] != None):
+						print(name + " has gone from the right Frame.")
+						rightBoundingBoxes[name] = None
+				else:
+					rightBoundingBoxes[name] = changeBoxFormat2(box)
+	
+	leftFrame, rightFrame = draw_faces(leftFrame, rightFrame, leftBoundingBoxes, rightBoundingBoxes, names)
 
 	cv2.imshow("Left Camera", leftFrame)
 	cv2.imshow("Right Camera", rightFrame)
 	if cv2.waitKey(1) & 0xFF == ord('q'):
 		break
+	totalFrames += 1
 
 # do a bit of cleanup
 left.release()
