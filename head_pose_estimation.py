@@ -81,6 +81,7 @@ class HeadPoseEstimator:
                     0.75, (0, 0, 0), thickness=2)
         cv2.putText(frame, "Z: " + "{:7.2f}".format(euler_angle[2, 0]) + " radians", (20, 80), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (0, 0, 0), thickness=2)
+        return frame
 
 def main():
     detector = dlib.get_frontal_face_detector()
@@ -103,7 +104,7 @@ def main():
             shape = face_utils.shape_to_np(shape)
             pose_estimator = HeadPoseEstimator()
             cube_image_coords, euler_angle = pose_estimator.get_head_pose(shape)
-            pose_estimator.draw_head_pose(cube_image_coords, euler_angle, frame)
+            frame = pose_estimator.draw_head_pose(cube_image_coords, euler_angle, frame)
 
         cv2.imshow("demo", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
