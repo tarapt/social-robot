@@ -9,6 +9,7 @@ import dlib
 import numpy as np
 from scipy import stats
 from imutils import face_utils
+from head_pose_estimator import HeadPoseEstimator
 
 float_formatter = lambda x: "%.1f" % x
 np.set_printoptions(formatter={'float_kind':float_formatter})
