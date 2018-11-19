@@ -24,6 +24,7 @@ class FaceDetector:
         encodings = face_recognition.face_encodings(rgb, boxes)
         names = []
 
+        # nearest neighbor algorithm
         # loop over the facial embeddings
         for encoding in encodings:
             # attempt to match each face in the input image to our known encodings

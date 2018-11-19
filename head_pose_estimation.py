@@ -3,7 +3,7 @@ import dlib
 import numpy as np
 from imutils import face_utils
 
-face_landmark_path = './shape_predictor_68_face_landmarks.dat'
+face_landmark_path = './trained_models/shape_predictor_68_face_landmarks.dat'
 def read_nums_from_file(filename):
     with open(filename) as f:
         array = [[float(x) for x in line.split()] for line in f]
@@ -35,6 +35,10 @@ class HeadPoseEstimator:
                             [0.000000, -3.116408, 6.097667],
                             [0.000000, -7.415691, 4.070434]])
 
+    # model coordinates for a line starting from the face
+    line_model_coords = np.float32([[20.0, 20.0, 20.0],
+                            [0.0, 0.0, 0.0]])
+
     # model coordinates for the cube around the face
     cube_model_coords = np.float32([[10.0, 10.0, 10.0],
                             [10.0, 10.0, -10.0],
@@ -61,8 +65,11 @@ class HeadPoseEstimator:
 
         cube_image_coords, _ = cv2.projectPoints(self.cube_model_coords, rotation_vec, translation_vec, self.cam_matrix,
                                             self.dist_coeffs)
-
         cube_image_coords = tuple(map(tuple, cube_image_coords.reshape(8, 2)))
+
+        # line_image_coords, _ = cv2.projectPoints(self.line_model_coords, rotation_vec, translation_vec, self.cam_matrix,
+        #                                     self.dist_coeffs)
+        # line_image_coords = tuple(map(tuple, line_image_coords.reshape(2, 2)))
 
         # calculate euler angle
         rotation_mat, _ = cv2.Rodrigues(rotation_vec)
@@ -74,6 +81,7 @@ class HeadPoseEstimator:
     def draw_head_pose(self, cube_image_coords, euler_angle, frame):
         for start, end in self.line_pairs:
             cv2.line(frame, cube_image_coords[start], cube_image_coords[end], (0, 0, 255))
+        # cv2.line(frame, line_image_coords[0], line_image_coords[0], (0, 0, 0))
 
         cv2.putText(frame, "X: " + "{:7.2f}".format(euler_angle[0, 0]) + " radians", (20, 20), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (0, 0, 0), thickness=2)

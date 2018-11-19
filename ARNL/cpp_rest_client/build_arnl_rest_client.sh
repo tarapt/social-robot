@@ -1,0 +1,12 @@
+g++ -fPIC -g -Wall \
+    -I/usr/local/Arnl/include -I/usr/local/Arnl/include/Aria -I/usr/local/Arnl/include/ArNetworking \
+    -DARNL -DSONARNL \
+    -DBOOST_COROUTINE_NO_DEPRECATION_WARNING \
+    -o arnlRestClient arnlRestClient.cpp \
+    -lrestc-cpp -lz -lssl -lcrypto -lpthread \
+    -lboost_system -lboost_program_options -lboost_filesystem \
+    -lboost_date_time -lboost_context -lboost_coroutine \
+    -lboost_chrono -lboost_log -lboost_thread -lboost_log_setup -lboost_regex \
+    -lboost_atomic -lpthread \
+    -L/usr/local/Arnl/lib -lBaseArnl -lArNetworkingForArnl -lAriaForArnl -lSonArnl \
+    -Bstatic -lstdc++ -Xlinker -Bdynamic -lpthread -ldl -lrt
