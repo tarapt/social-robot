@@ -1,6 +1,7 @@
 import cv2
 import dlib
 import numpy as np
+import math
 from imutils import face_utils
 
 face_landmark_path = './trained_models/shape_predictor_68_face_landmarks.dat'
@@ -8,6 +9,37 @@ def read_nums_from_file(filename):
     with open(filename) as f:
         array = [[float(x) for x in line.split()] for line in f]
         return array
+
+# Checks if a matrix is a valid rotation matrix.
+def isRotationMatrix(R) :
+    Rt = np.transpose(R)
+    shouldBeIdentity = np.dot(Rt, R)
+    I = np.identity(3, dtype = R.dtype)
+    n = np.linalg.norm(I - shouldBeIdentity)
+    return n < 1e-6
+ 
+ 
+# Calculates rotation matrix to euler angles
+# The result is the same as MATLAB except the order
+# of the euler angles ( x and z are swapped ).
+def rotationMatrixToEulerAngles(R) :
+ 
+    assert(isRotationMatrix(R))
+     
+    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+     
+    singular = sy < 1e-6
+ 
+    if  not singular :
+        x = math.atan2(R[2,1] , R[2,2])
+        y = math.atan2(-R[2,0], sy)
+        z = math.atan2(R[1,0], R[0,0])
+    else :
+        x = math.atan2(-R[1,2], R[1,1])
+        y = math.atan2(-R[2,0], sy)
+        z = 0
+ 
+    return np.array([math.degrees(x), math.degrees(y), math.degrees(z)])
 
 class HeadPoseEstimator:
     # camera matrix
@@ -73,21 +105,21 @@ class HeadPoseEstimator:
 
         # calculate euler angle
         rotation_mat, _ = cv2.Rodrigues(rotation_vec)
-        pose_mat = cv2.hconcat((rotation_mat, translation_vec))
-        _, _, _, _, _, _, euler_angle = cv2.decomposeProjectionMatrix(pose_mat)
+        # pose_mat = cv2.hconcat((rotation_mat, translation_vec))
+        # _, _, _, _, _, _, euler_angle = cv2.decomposeProjectionMatrix(pose_mat)
 
-        return cube_image_coords, euler_angle
+        return cube_image_coords, rotationMatrixToEulerAngles(rotation_mat)
 
     def draw_head_pose(self, cube_image_coords, euler_angle, frame):
         for start, end in self.line_pairs:
             cv2.line(frame, cube_image_coords[start], cube_image_coords[end], (0, 0, 255))
         # cv2.line(frame, line_image_coords[0], line_image_coords[0], (0, 0, 0))
 
-        cv2.putText(frame, "X: " + "{:7.2f}".format(euler_angle[0, 0]) + " radians", (20, 20), cv2.FONT_HERSHEY_SIMPLEX,
+        cv2.putText(frame, "X: " + "{:7.2f}".format(euler_angle[0]) + " degrees", (20, 20), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (0, 0, 0), thickness=2)
-        cv2.putText(frame, "Y: " + "{:7.2f}".format(euler_angle[1, 0]) + " radians", (20, 50), cv2.FONT_HERSHEY_SIMPLEX,
+        cv2.putText(frame, "Y: " + "{:7.2f}".format(euler_angle[1]) + " degrees", (20, 50), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (0, 0, 0), thickness=2)
-        cv2.putText(frame, "Z: " + "{:7.2f}".format(euler_angle[2, 0]) + " radians", (20, 80), cv2.FONT_HERSHEY_SIMPLEX,
+        cv2.putText(frame, "Z: " + "{:7.2f}".format(euler_angle[2]) + " degrees", (20, 80), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (0, 0, 0), thickness=2)
         return frame
 
