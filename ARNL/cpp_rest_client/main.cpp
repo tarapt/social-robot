@@ -17,12 +17,10 @@ using namespace restc_cpp;
 namespace logging = boost::log;
 
 // C++ structure that match the JSON entries received
-// from http://jsonplaceholder.typicode.com/posts/{id}
 struct Post {
-    int userId = 0;
-    int id = 0;
-    string title;
-    string body;
+    string name;
+    double position[3];
+    double theta[3];
 };
 
 // Since C++ does not (yet) offer reflection, we need to tell the library how
@@ -32,17 +30,14 @@ struct Post {
 
 BOOST_FUSION_ADAPT_STRUCT(
     Post,
-    (int, userId)
-    (int, id)
-    (string, title)
-    (string, body)
+    (string, name)
+    (double, position[3])
+    (double, theta[3])
 )
 
-// The C++ main function - the place where any adventure starts
 int main() {
     // Set the log-level to a reasonable value
-    logging::core::get()->set_filter
-    (
+    logging::core::get()->set_filter(
         logging::trivial::severity >= logging::trivial::info
     );
 
@@ -50,19 +45,19 @@ int main() {
     auto rest_client = RestClient::Create();
 
     // Create and instantiate a Post from data received from the server.
-    Post my_post = rest_client->ProcessWithPromiseT<Post>([&](Context& ctx) {
+    list<Post> post_list = rest_client->ProcessWithPromiseT<list<Post> >([&](Context& ctx) {
         // This is a co-routine, running in a worker-thread
 
         // Instantiate a Post structure.
-        Post post;
+        list<Post> post_list;
 
         // Serialize it asynchronously. The asynchronously part does not really matter
         // here, but it may if you receive huge data structures.
-        SerializeFromJson(post,
+        SerializeFromJson(post_list,
 
             // Construct a request to the server
             RequestBuilder(ctx)
-                .Get("http://jsonplaceholder.typicode.com/posts/1")
+                .Get("http://127.0.0.1:5000/detections")
 
                 // Add some headers for good taste
                 .Header("X-Client", "RESTC_CPP")
@@ -72,7 +67,7 @@ int main() {
                 .Execute());
 
         // Return the post instance trough a C++ future<>
-        return post;
+        return post_list;
     })
 
     // Get the Post instance from the future<>, or any C++ exception thrown
@@ -80,6 +75,6 @@ int main() {
     .get();
 
     // Print the result for everyone to see.
-    cout << "Received post# " << my_post.id << ", title: " << my_post.title
-        << endl;
+    for(Post post: post_list)
+        cout << post.name << endl;
 }

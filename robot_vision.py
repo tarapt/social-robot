@@ -31,6 +31,9 @@ class StereoCamera:
 		self.left = cv2.VideoCapture(leftCameraId)
 		self.right = cv2.VideoCapture(rightCameraId)
 
+	def isOpened(self):
+		return self.left.isOpened() and self.right.isOpened()
+
 	def retrieve(self):
 		_, leftFrame = self.left.retrieve()
 		_, rightFrame = self.right.retrieve()
@@ -68,6 +71,14 @@ def draw_faces(stereoFrame, detectedFaces, faceDetector):
 
 def capture_and_process_frames(args):
 	stereoCamera = StereoCamera(0, 1)
+	if not stereoCamera.isOpened():
+		stereoCamera = StereoCamera(1, 2)
+	if not stereoCamera.isOpened():
+		stereoCamera = StereoCamera(0, 2)
+	if not stereoCamera.isOpened():
+		print("Couldn't open the cameras.")
+		return
+	
 	totalFrames = 0
 	skipFrames = args['skip_frames']
 	time.sleep(5.0)
@@ -100,8 +111,8 @@ def capture_and_process_frames(args):
 		fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
 
 		# Display FPS on frame
-		cv2.putText(stereoFrame.left, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-		cv2.putText(stereoFrame.right, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+		cv2.putText(stereoFrame.left, "FPS : " + str(int(fps)), (400,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
+		cv2.putText(stereoFrame.right, "FPS : " + str(int(fps)), (400,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
 
 		cv2.imshow("Left Camera", stereoFrame.left)
 		cv2.imshow("Right Camera", stereoFrame.right)
@@ -119,7 +130,7 @@ app = Flask(__name__)
 @app.route('/detections/', methods=['GET'])
 def getDetections():
 	detectedPersonsLock.acquire()
-	ret = jsonify(detectedPersons)
+	ret = jsonify({'detections': detectedPersons})
 	detectedPersonsLock.release()
 	return ret
 

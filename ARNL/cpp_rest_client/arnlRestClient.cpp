@@ -1,5 +1,40 @@
 #include "Aria.h"
 #include "ArNetworking.h"
+#include "ArClientHandlerRobotUpdate.h"
+
+#include <iostream>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/fusion/adapted.hpp>
+
+#define BOOST_LOG_DYN_LINK 1
+#include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup.hpp>
+
+#include <restc-cpp/restc-cpp.h>
+#include <restc-cpp/RequestBuilder.h>
+
+using namespace std;
+using namespace restc_cpp;
+namespace logging = boost::log;
+
+// C++ structure that match the JSON entries received
+// struct Post {
+//     string name;
+//     vector<double> position;
+//     vector<double> theta;
+// };
+
+// Since C++ does not (yet) offer reflection, we need to tell the library how
+// to map json members to a type. We are doing this by declaring the
+// structs/classes with BOOST_FUSION_ADAPT_STRUCT from the boost libraries.
+// This allows us to convert the C++ classes to and from JSON.
+// BOOST_FUSION_ADAPT_STRUCT(
+//     Post,
+//     (string, name)
+//     (vector<double>, position)
+//     (vector<double>, theta)
+// )
 
 void handlePathPlannerStatus(ArNetPacket *packet) {
   char buf[64];
@@ -53,19 +88,22 @@ int main(int argc, char **argv) {
     exit(1);
   } 
 
+  ArClientHandlerRobotUpdate robotUpdates(&client);
+  robotUpdates.requestUpdates();  // Won't work without this
+
   printf("Connected to server.\n");
-  client.addHandler("pathPlannerStatus", new ArGlobalFunctor1<ArNetPacket*>(&handlePathPlannerStatus));
-  client.addHandler("update", new ArGlobalFunctor1<ArNetPacket*>(&handleRobotUpdate));
-  client.addHandler("goalName", new ArGlobalFunctor1<ArNetPacket*>(&handleGoalName));
-  client.addHandler("getGoals", new  ArGlobalFunctor1<ArNetPacket*>(&handleGoalList));
+  // client.addHandler("pathPlannerStatus", new ArGlobalFunctor1<ArNetPacket*>(&handlePathPlannerStatus));
+  // client.addHandler("update", new ArGlobalFunctor1<ArNetPacket*>(&handleRobotUpdate));
+  // client.addHandler("goalName", new ArGlobalFunctor1<ArNetPacket*>(&handleGoalName));
+  // client.addHandler("getGoals", new  ArGlobalFunctor1<ArNetPacket*>(&handleGoalList));
   client.runAsync();
-  client.requestOnce("getGoals");
-  client.request("pathPlannerStatus", 5000);
-  client.request("goalName", 5000);
-  client.request("update", 5000);
+  // client.requestOnce("getGoals");
+  // client.request("pathPlannerStatus", 5000);
+  // client.request("goalName", 5000);
+  // client.request("update", 5000);
   while(client.getRunningWithLock()) {
     char goal[128];
-    printf("=> Enter a goal name, or * to tour all goals, or ? to list goals.\n");
+    printf("=> Enter a goal name, # for position or * to tour all goals, or ? to list goals.\n");
     if( fgets(goal, 127, stdin) == NULL ) { // EOF
         printf("goodbye.\n");
         Aria::shutdown();
@@ -74,7 +112,7 @@ int main(int argc, char **argv) {
     goal[strlen(goal)-1] = '\0';  // remove newline
     if(strcmp(goal, "?") == 0) {
       client.requestOnce("getGoals");
-      printf("=> Enter a goal name, or * to tour all goals, or ? to list goals.\n");
+      printf("=> Enter a goal name, # for position or * to tour all goals, or ? to list goals.\n");
     } else if(strcmp(goal, "*") == 0) {
       if(client.dataExists("tourGoals")) {
         printf("=> Touring all goals...\n");
@@ -82,6 +120,17 @@ int main(int argc, char **argv) {
       } else {
         printf("=> Can't tour goals, server does not have that request.\n");
       }
+    } else if(goal[0] == '#') {
+      ArPose currPose = robotUpdates.getPose();
+      char c;
+      int x_offset, y_offset;
+      sscanf(goal, "%c%d%d\n", &c, &x_offset, &y_offset);
+      ArNetPacket posePacket;
+      posePacket.byte4ToBuf(int(currPose.getX()) + x_offset);
+      posePacket.byte4ToBuf(int(currPose.getY()) + y_offset);
+      printf("=> Current pose is %d %d...\n", int(currPose.getX()), int(currPose.getY()));
+      printf("=> Going to pose: %d %d...\n", int(currPose.getX()) + x_offset, int(currPose.getY()) + y_offset);
+      client.requestOnce("gotoPose", &posePacket);
     } else {
       printf("=> Sending goal \"%s\" to server...\n", goal);
       client.requestOnceWithString("gotoGoal", goal);

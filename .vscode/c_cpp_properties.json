@@ -3,7 +3,8 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/usr/local/Arnl/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/local/cuda-9.2/bin/gcc",

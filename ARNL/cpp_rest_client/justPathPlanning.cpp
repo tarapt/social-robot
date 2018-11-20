@@ -201,7 +201,6 @@ main(int argc, char *argv[])
   // Misc. simple commands:
   ArServerHandlerCommands commands(&server);
 
-
   // These provide various kinds of information to the client:
   ArServerInfoRobot serverInfoRobot(&server, &robot);
   ArServerInfoSensor serverInfoSensor(&server, &robot);
@@ -215,14 +214,12 @@ main(int argc, char *argv[])
   ArServerHandlerMap serverMap(&server, &arMap);
 
   
-
   // Add some simple (custom) commands for testing and debugging:
   ArServerSimpleComUC uCCommands(&commands, &robot);                   // Send any command to the microcontroller
   ArServerSimpleComMovementLogging loggingCommands(&commands, &robot); // configure logging
   ArServerSimpleComGyro gyroCommands(&commands, &robot, &gyro);        // monitor the gyro
   ArServerSimpleComLogRobotConfig configCommands(&commands, &robot);   // trigger logging of the robot config parameters
   ArServerSimpleServerCommands serverCommands(&commands, &server);     // monitor networking behavior (track packets sent etc.)
-
 
   /* Set up the possible modes for remote control from a client such as
    * MobileEyes:
@@ -354,22 +351,6 @@ main(int argc, char *argv[])
   robot.unlock();
 
   server.runAsync();
-
-  // Add a key handler (mostly so that on windows you can exit by pressing
-  // escape.) This key handler, however, prevents this program from
-  // running in the background (e.g. as a system daemon or run from 
-  // the shell with "&") -- it will lock up trying to read the keys; 
-  // remove this if you wish to be able to run this program in the background.
-  ArKeyHandler *keyHandler;
-  if ((keyHandler = Aria::getKeyHandler()) == NULL)
-  {
-    keyHandler = new ArKeyHandler;
-    Aria::setKeyHandler(keyHandler);
-    robot.lock();
-    robot.attachKeyHandler(keyHandler);
-    robot.unlock();
-    printf("To exit, press escape.\n");
-  }
 
   robot.waitForRunExit();
   Aria::exit(0);
