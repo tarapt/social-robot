@@ -1,5 +1,6 @@
 {
     "files.associations": {
         "tuple": "cpp"
-    }
+    },
+    "python.pythonPath": "/home/tara/anaconda3/envs/cv342/bin/python"
 }
