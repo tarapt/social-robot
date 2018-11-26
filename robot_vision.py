@@ -58,7 +58,13 @@ class StereoCamera:
 		self.left.release()
 		self.right.release()
 
+class CameraError(Exception):
+   pass
+
 class Vision:
+	def __init__(self):
+		self.setup_cameras()
+	
 	detectedPersonsLock = Lock()
 	detectedPersons = []
 
@@ -94,34 +100,34 @@ class Vision:
 			stereoFrame.right = faceDetector.draw_face_details(stereoFrame.right, face.rightBBox, face.name, rightLandmarks, worldCoordinates)
 		return stereoFrame, detections
 
-	def setup_cameras(self):
-		cnt = 10
+	def setup_cameras(self, max_trials=10):
+		cnt = 1
 		stereoCamera = StereoCamera(0, 1)
-		while(cnt > 0 and not stereoCamera.isOpened()):
+		while(cnt < max_trials and not stereoCamera.isOpened()):
+			print("Attempt #%d to open cameras..." % cnt)
 			stereoCamera = StereoCamera(0, 1)
 			if not stereoCamera.isOpened():
 				stereoCamera = StereoCamera(1, 2)
 			if not stereoCamera.isOpened():
 				stereoCamera = StereoCamera(0, 2)
-			cnt -= 1
+			cnt += 1
 
+		self.stereoCamera = stereoCamera
 		if not stereoCamera.isOpened():
-			return None
-		return stereoCamera
+			self.stereoCamera = None
+			raise CameraError
 
 	def _capture_and_process_frames(self, skipFrames=0, detection_method='cnn'):
-		stereoCamera = self.setup_cameras()
-		if stereoCamera == None:
-			print("Couldn't open the cameras.")
-			return
+		if self.stereoCamera is None:
+			raise CameraError
 
 		totalFrames = 0
 		time.sleep(2.0)
 		
 		while True:
-			if not stereoCamera.hasFrames():
+			if not self.stereoCamera.hasFrames():
 				continue
-			stereoFrame = stereoCamera.retrieve()
+			stereoFrame = self.stereoCamera.retrieve()
 
 			# Start timer
 			timer = cv2.getTickCount()
@@ -157,7 +163,7 @@ class Vision:
 			totalFrames += 1
 
 		# do a bit of cleanup
-		stereoCamera.release()
+		self.stereoCamera.release()
 		cv2.destroyAllWindows()
 
 	def capture_and_process_frames(self, skipFrames=0, detection_method='cnn'):
