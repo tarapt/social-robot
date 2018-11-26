@@ -62,6 +62,15 @@ class Vision:
 	detectedPersonsLock = Lock()
 	detectedPersons = []
 
+	def acquireDetectedPersonsLock(self):
+		self.detectedPersonsLock.acquire()
+
+	def releaseDetectedPersonsLock(self):
+		self.detectedPersonsLock.release()
+
+	def getDetectedPersons(self):
+		return self.detectedPersons
+
 	def draw_faces(self, stereoFrame, detectedFaces, faceDetector):
 		detections = []
 		# loop over each face
