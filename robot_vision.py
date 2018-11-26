@@ -44,7 +44,8 @@ class StereoCamera:
 		self.right = cv2.VideoCapture(rightCameraId)
 
 	def isOpened(self):
-		return self.left.isOpened() and self.right.isOpened()
+		return ((self.left is not None and self.left.isOpened()) and 
+			(self.right is not None and self.right.isOpened()))
 
 	def retrieve(self):
 		_, leftFrame = self.left.retrieve()
