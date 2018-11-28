@@ -1,3 +1,28 @@
+# This module task is to have the 3D location of a person in a map.
+# If at some moment of time the person is not in the frame the map should have
+# the last known location in it. The face recognition should work with as much accuracy as 
+# possible. Use a neural network or SVM if possible. Have a very high threshold for face
+# recognition matching. This is because inaccurate recognition is undesirable. Morever use person 
+# detection and recognition if possible instead of just considering the facial features.
+
+# Run the calibration setup every time the cameras position is disturbed to update the 
+# camera extrinisics, since the cameras may not lie on the same line and face the same plane.
+# Presently the disparity calculation isn't taking into account the extrinsic parameters. 
+# Feed the disparity array to an opencv function inorder to take care of distortin and other things.
+# If that's not possible, need to implement the distortion model.
+
+# Head Pose Estimation
+# --------------------
+# Presently, the angles calculate fluctuate rapidly, since a slight head movement
+# would lead to large change in angle, this would be a problem because the
+# robot would not be able to stay at a stable position. To fix this reduce the size of the angle's
+# domain from 360 to 8 (octants) or 4 (quadrants), which ever works well practically.
+# If the detected person is facing the opposite direction, issue a voice command like 'excuse me'
+# to ask the person to turn towards the robot. Do this if maneuvering to the opposite side of the person 
+# isn't possible. First choice should be to take a path to face the person while maintaining the 
+# safe distance around the person, i.e, try to reach the diameterically opposite end with the 
+# person as the centre and safe distance as the radius.
+ 
 from imutils.video import VideoStream
 import argparse
 import time
@@ -115,21 +140,18 @@ class Vision:
 
 		self.stereoCamera = stereoCamera
 		if not stereoCamera.isOpened():
-			self.stereoCamera = None
 			raise CameraError
 
 	def _capture_and_process_frames(self, skipFrames=0, detection_method='cnn'):
-		if self.stereoCamera is None:
-			raise CameraError
-
 		totalFrames = 0
-		time.sleep(2.0)
-		
+		# time.sleep(2.0)
+
+		print("[INFO] Capturing frames...")
 		while True:
 			if not self.stereoCamera.hasFrames():
 				continue
 			stereoFrame = self.stereoCamera.retrieve()
-
+			print("[INFO] Captured frame %d..." % totalFrames)
 			# Start timer
 			timer = cv2.getTickCount()
 			

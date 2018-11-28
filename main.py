@@ -1,3 +1,32 @@
+# Abruptly exiting the program causes the cameras to nt work afterwards. Produces the 
+# error VIDEOIO ERROR: V4L: can't open camera by index 1. Pressing q on the opencv window would
+# work, but if the windows didn't start due to some reason, it could be a problem. 
+# So, implement the vision module as a stoppable thread https://stackoverflow.com/questions/323972/is-there-any-way-to-kill-a-thread,
+# and have the main module listen for the stop commands. write the debugging messages into a 
+# separate log file instead of the console, to not get in the way of the commands given to the console.
+
+# imshow and waitkey issues
+# -------------------------
+# If the vision module is inside the same file then they are working, but once moved to a different file they aren't.
+# 
+# Some research suggests that issuing these calls from main thread should solve these problems. But how?
+# Google: create opencv window in a thread 
+# 
+# http://answers.opencv.org/question/88461/stdthread-imshow-no-windows-created/
+# naive threading - fastest way to hell.
+# probably none of the highgui calls should go into your thread, keep them in the main thread, you're messing with the os here
+# 
+# https://github.com/opencv/opencv/issues/8407 You should interact with UI from the "main" thread only.
+# 
+# Refer these:
+# -----------
+# http://algomuse.com/c-c/developing-a-multithreaded-real-time-video-processing-application-in-opencv
+# https://nrsyed.com/2018/07/05/multithreading-with-opencv-python-to-improve-video-processing-performance/
+# https://www.pyimagesearch.com/2016/05/30/displaying-a-video-feed-with-opencv-and-tkinter/
+# https://www.pyimagesearch.com/2016/01/04/unifying-picamera-and-cv2-videocapture-into-a-single-class-with-opencv/
+
+
+
 import time
 import robot_vision
 from AriaPy import *
