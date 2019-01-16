@@ -5,10 +5,11 @@
 # recognition matching. This is because inaccurate recognition is undesirable. Morever use person 
 # detection and recognition if possible instead of just considering the facial features.
 
+# TODO
 # Run the calibration setup every time the cameras position is disturbed to update the 
 # camera extrinisics, since the cameras may not lie on the same line and face the same plane.
 # Presently the disparity calculation isn't taking into account the extrinsic parameters. 
-# Feed the disparity array to an opencv function inorder to take care of distortin and other things.
+# Feed the disparity array to an opencv function inorder to take care of distortion and other things.
 # If that's not possible, need to implement the distortion model.
 
 # Head Pose Estimation
@@ -23,34 +24,32 @@
 # safe distance around the person, i.e, try to reach the diameterically opposite end with the 
 # person as the centre and safe distance as the radius.
  
-from imutils.video import VideoStream
+# from imutils.video import VideoStream
 import argparse
 import time
 import cv2
 import numpy as np
 from head_pose_estimation import HeadPoseEstimator
-from face_detection import FaceDetector
 from depth_estimation import DepthEstimator
-from threading import Lock, Thread
 
 dlib_predictor_model_path = "./trained_models/shape_predictor_68_face_landmarks.dat"
 facial_encodings_path = "./trained_models/facial_encodings.pickle"
 
 # initialize a dictionary that maps strings to their corresponding
 # OpenCV object tracker implementations
-OPENCV_OBJECT_TRACKERS = {
-	"csrt": cv2.TrackerCSRT_create,
-	"kcf": cv2.TrackerKCF_create,
-	"boosting": cv2.TrackerBoosting_create,
-	"mil": cv2.TrackerMIL_create,
-	"tld": cv2.TrackerTLD_create,
-	"medianflow": cv2.TrackerMedianFlow_create,
-	"mosse": cv2.TrackerMOSSE_create
-}
+# OPENCV_OBJECT_TRACKERS = {
+# 	"csrt": cv2.TrackerCSRT_create,
+# 	"kcf": cv2.TrackerKCF_create,
+# 	"boosting": cv2.TrackerBoosting_create,
+# 	"mil": cv2.TrackerMIL_create,
+# 	"tld": cv2.TrackerTLD_create,
+# 	"medianflow": cv2.TrackerMedianFlow_create,
+# 	"mosse": cv2.TrackerMOSSE_create
+# }
 
 # initialize OpenCV's special multi-object tracker
 # consider using an array of trackers instead, to know which of the tracker failed
-trackers = cv2.MultiTracker_create()
+# trackers = cv2.MultiTracker_create()
 
 class Face:
 	def __init__(self, name, leftBBox, rightBBox):
@@ -88,20 +87,8 @@ class CameraError(Exception):
    pass
 
 class Vision:
-	def __init__(self):
-		self.setup_cameras()
-	
-	detectedPersonsLock = Lock()
-	detectedPersons = []
-
-	def acquireDetectedPersonsLock(self):
-		self.detectedPersonsLock.acquire()
-
-	def releaseDetectedPersonsLock(self):
-		self.detectedPersonsLock.release()
-
-	def getDetectedPersons(self):
-		return self.detectedPersons
+	def __init__(self, id1=-1, id2=-1):
+		self.setup_cameras(id1, id2)
 
 	def draw_faces(self, stereoFrame, detectedFaces, faceDetector):
 		detections = []
@@ -126,72 +113,21 @@ class Vision:
 			stereoFrame.right = faceDetector.draw_face_details(stereoFrame.right, face.rightBBox, face.name, rightLandmarks, worldCoordinates)
 		return stereoFrame, detections
 
-	def setup_cameras(self, max_trials=10):
-		cnt = 1
-		stereoCamera = StereoCamera(0, 1)
-		while(cnt < max_trials and not stereoCamera.isOpened()):
-			print("Attempt #%d to open cameras..." % cnt)
+	def setup_cameras(self, id1=-1, id2=-1, max_trials=10):
+		if id1 == -1 or id2 == -1:
+			cnt = 1
 			stereoCamera = StereoCamera(0, 1)
-			if not stereoCamera.isOpened():
-				stereoCamera = StereoCamera(1, 2)
-			if not stereoCamera.isOpened():
-				stereoCamera = StereoCamera(0, 2)
-			cnt += 1
-
-		self.stereoCamera = stereoCamera
-		if not stereoCamera.isOpened():
+			while(cnt < max_trials and not stereoCamera.isOpened()):
+				print("Attempt #%d to open cameras..." % cnt)
+				stereoCamera = StereoCamera(0, 1)
+				if not stereoCamera.isOpened():
+					stereoCamera = StereoCamera(1, 2)
+				if not stereoCamera.isOpened():
+					stereoCamera = StereoCamera(0, 2)
+				cnt += 1
+			self.stereoCamera = stereoCamera
+		else:
+			self.stereoCamera = StereoCamera(id1, id2)
+		
+		if not self.stereoCamera.isOpened():
 			raise CameraError
-
-	def _capture_and_process_frames(self, skipFrames=0, detection_method='cnn'):
-		totalFrames = 0
-		# time.sleep(2.0)
-
-		print("[INFO] Capturing frames...")
-		while True:
-			if not self.stereoCamera.hasFrames():
-				continue
-			stereoFrame = self.stereoCamera.retrieve()
-			print("[INFO] Captured frame %d..." % totalFrames)
-			# Start timer
-			timer = cv2.getTickCount()
-			
-			if totalFrames % (skipFrames + 1) == 0:
-				faceDetector = FaceDetector(facial_encodings_path, dlib_predictor_model_path, detection_method)
-				leftBoxes, names = faceDetector.get_faces(stereoFrame.left)
-				rightBoxes, _ = faceDetector.get_faces(stereoFrame.right)
-
-				detected_faces = []
-				for leftBox, rightBox, name in zip(leftBoxes, rightBoxes, names):
-					detected_faces.append(Face(name, leftBox, rightBox))
-				
-				stereoFrame, detections = self.draw_faces(stereoFrame, detected_faces, faceDetector)
-
-				self.detectedPersonsLock.acquire()
-				global detectedPersons
-				detectedPersons = detections
-				self.detectedPersonsLock.release()
-
-			# Calculate Frames per second (FPS)
-			fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-
-			# Display FPS on frame
-			cv2.putText(stereoFrame.left, "FPS : " + str(int(fps)), (400,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-			cv2.putText(stereoFrame.right, "FPS : " + str(int(fps)), (400,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-
-			cv2.imshow("Left Camera", stereoFrame.left)
-			cv2.imshow("Right Camera", stereoFrame.right)
-
-			if cv2.waitKey(1) & 0xFF == ord('q'):
-				break
-			totalFrames += 1
-
-		# do a bit of cleanup
-		self.stereoCamera.release()
-		cv2.destroyAllWindows()
-
-	def capture_and_process_frames(self, skipFrames=0, detection_method='cnn'):
-		Thread(target=self._capture_and_process_frames).start()
-
-if __name__ == '__main__':
-	vision = Vision()
-	vision.capture_and_process_frames()

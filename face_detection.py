@@ -5,7 +5,6 @@ import face_recognition
 import pickle
 
 class FaceDetector:
-    
     def __init__(self, facial_encodings_path, dlib_predictor_model_path, detection_method = 'cnn'):
         self.face_detection_method = detection_method
         self.facial_encodings = facial_encodings_path

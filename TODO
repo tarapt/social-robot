@@ -1,0 +1,9 @@
+
+Todo:
+  ✔ Head pose: change to 45 degree units @done(19-01-16 00:43)
+  ☐ Use the current heading to calculate the correct position of person
+  ☐ Write a script for automatic calibration every time the cameras are started. 
+  ☐ Use the calibrated results in the code, not the hardcoded values.
+  ☐ GUI: to select the person to approach
+  ☐ Tracking: To change heading of the robot, in case the person moves outside the view
+  ☐ Depth Estimation: Use Posenet for human body detection and pose estimation (see medium article)
