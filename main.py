@@ -32,11 +32,11 @@
 # https://www.pyimagesearch.com/2016/05/30/displaying-a-video-feed-with-opencv-and-tkinter/
 # https://www.pyimagesearch.com/2016/01/04/unifying-picamera-and-cv2-videocapture-into-a-single-class-with-opencv/
 
-from AriaPy import *
-from ArNetworkingPy import *
-from BaseArnlPy import *
-from SonArnlPy import *
-from control_unit import ControlUnit
+# from AriaPy import *
+# from ArNetworkingPy import *
+# from BaseArnlPy import *
+# from SonArnlPy import *
+# from control_unit import ControlUnit
 import cv2
 import sys
 from robot import RobotController
@@ -46,51 +46,69 @@ import math
 
 def get_safe_position(x, y, th):
 	#if(math.fabs(th) > 90):
-		# TODO check if the formulaes change
+		# TODO: check if the formulaes change
 	safe_distance = 1
 	r = safe_distance
 	del_x = r * math.sin(math.radians(th))
-	del_y = r - r * math.cos(math.radians(th))
+	del_y = r * math.cos(math.radians(th))
 	return x - del_x, y - del_y, th
+
+def get_position_in_world_coordinates(robot_pose, position_in_robot_coordinates):
+	x1, y1, theta1 = robot_pose.getX(), robot_pose.getY(), robot_pose.getTh()
+	x2, y2 = position_in_robot_coordinates[0], position_in_robot_coordinates[1]
+
+	r = math.hypot(x2, y2)	
+	theta1 = math.radians(theta1)
+	theta2 = math.atan2(x2, y2)
+
+	x = r * math.cos(theta1 + theta2)
+	y = r * math.sin(theta1 + theta2)
+	return x1 + x, y1 + y
 
 def update_goal(detections, name, robotController):
 	# return True if goal reached
 	robot = robotController.robot
-	print(detections)
-	pos = [0, 0, 0]
-	th = 0
+	print("[update_goal]: Persons detected in camera - ", detections)
+
 	found = False
 	for person in detections:
 		if person['name'] == name:
 			pos = person['position']
 			th = person['theta'][1]
 			found = True
-			print("Person found")
+			print("[update_goal]: " + name + " found")
 			break
+
+	if not found:
+		return
 
 	robot.lock()
 	currPose = robot.getPose()
 	robot.unlock()
 
-	goal_x, goal_y, heading = get_safe_position(pos[0], pos[2], th)
+	# these coordinates are in robot's POV
+	goal_x, goal_y, delta_heading = get_safe_position(pos[0], pos[2], th)
+	
 	scale = 1023 # 1 meter = 1023 steps for the robot
-	gotoPose = ArPose(currPose.getX() + goal_x * scale, currPose.getY() + goal_y * scale, currPose.getTh() + th)
-	#robotController.pathTask.pathPlanToPose(gotoPose, True)
-	# if found:
-	#     time.sleep(30)
-	# else:
-	#     time.sleep(1)
+	goal_x = goal_x * scale
+	goal_y = goal_y * scale
+	
+	goal_X, goal_Y = get_position_in_world_coordinates(currPose, [goal_x, goal_y])
+
+	goal_heading = currPose.getTh() + delta_heading
+	print("[update_goal]: " + "Changing goal to ", goal_X, goal_Y, goal_heading)
+	robotController.pathPlanToPose(goal_X, goal_Y, goal_heading)
 	return False
 
 if __name__ == '__main__':
 	dlib_predictor_model_path = "./trained_models/shape_predictor_68_face_landmarks.dat"
 	facial_encodings_path = "./trained_models/new_encodings.pickle"
 	skipFrames = 0
-	detection_method = 'cnn'
+	detection_method = 'hog'
 	try:
 		robotController = RobotController(sys.argv)
 		robot = robotController.robot
-		robot_vision = vision.Vision(0, 1)
+		robot_vision = vision.Vision(1, 2)
 	except vision.CameraError:
 		print("[ERROR] Cameras couldn't start. Exiting...")
 	else:
@@ -100,7 +118,8 @@ if __name__ == '__main__':
 		print("[INFO] Capturing frames...")
 
 		goal_reached = False
-		# lastFrame = None
+		lastKnownLocations = {}
+
 		while True:
 			if not robot_vision.stereoCamera.hasFrames():
 				continue
@@ -123,17 +142,22 @@ if __name__ == '__main__':
 				stereoFrame, detections = robot_vision.draw_faces(
 					stereoFrame, detected_faces, faceDetector)
 				
-				if not goal_reached:
-					goal_reached = update_goal(detections, 'tara_prasad', robotController)
+				# TODO: Beware of wrong detections, increase the confidence threshold
+				for person in detections:
+					lastKnownLocations[person['name']] = person
+				
+				# if not goal_reached:
+					# TODO: for testing, run this code exactly once
+					# goal_reached = update_goal(detections, 'mannequin', robotController)
 
-			# Calculate Frames per second (FPS)
-			fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+				# Calculate Frames per second (FPS)
+				fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
 
-			# Display FPS on frame
-			cv2.putText(stereoFrame.left, "FPS : " + str(int(fps)),
-						(400, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
-			cv2.putText(stereoFrame.right, "FPS : " + str(int(fps)),
-						(400, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+				# Display FPS on frame
+				cv2.putText(stereoFrame.left, "FPS : " + str(int(fps)),
+							(400, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+				cv2.putText(stereoFrame.right, "FPS : " + str(int(fps)),
+							(400, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 
 			cv2.imshow("Left Camera", stereoFrame.left)
 			cv2.imshow("Right Camera", stereoFrame.right)
@@ -146,34 +170,9 @@ if __name__ == '__main__':
 		robot_vision.stereoCamera.release()
 		cv2.destroyAllWindows()
 
-		# name = 'tara_prasad'
-		# while(True):
-		# 	robotVision.acquireDetectedPersonsLock()
-		# 	print robotVision.getDetectedPersons()
-		# 	pos = [0, 0, 0]
-		# 	th = 0
-		# 	found = False
-		# 	for person in robotVision.getDetectedPersons():
-		# 		if person['name'] == name:
-		# 			pos = person['position']
-		# 			th = person['theta'][1]
-		# 			found = True
-		# 			break
-		# 	robotVision.releaseDetectedPersonsLock()
-
-		# 	robot.lock()
-		# 	currPose = robot.getPose()
-		# 	robot.unlock()
-
-		# 1 meter = 1023 steps for the robot
-
-		# 	gotoPose = ArPose(currPose.getX() + pos[0] * 1023, currPose.getY() + pos[2] * 1023, currPose.getTh() + th)
-		# 	pathTask.pathPlanToPose(gotoPose, True)
-		# 	if found:
-		# 		time.sleep(30)
-		# 	else:
-		# 		time.sleep(1)
-
+		# elegantly stop the ArServer
+		# robotController.stopServer()
+		
 		# elegantly stop the robot
 		robot.disableMotors()
 		robot.disableSonar()
@@ -183,5 +182,4 @@ if __name__ == '__main__':
 		# Suspend calling thread until the ArRobot run loop has exited
 		robot.waitForRunExit()
 	# finally:
-		# elegantly stop the aria server
-		# server.close()
+		# use if needed

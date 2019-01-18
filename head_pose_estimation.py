@@ -5,6 +5,7 @@ import math
 from imutils import face_utils
 
 face_landmark_path = './trained_models/shape_predictor_68_face_landmarks.dat'
+camera_matrix_path = './calibration/left_camera_matrix.txt'
 quantization_step = 45  # 45 degrees
 
 
@@ -14,8 +15,6 @@ def read_nums_from_file(filename):
         return array
 
 # Checks if a matrix is a valid rotation matrix.
-
-
 def isRotationMatrix(R):
     Rt = np.transpose(R)
     shouldBeIdentity = np.dot(Rt, R)
@@ -56,7 +55,7 @@ def quantize_and_convert(euler_angle):
 
 class HeadPoseEstimator:
     # camera matrix
-    K = read_nums_from_file('./calibration_data/left_camera_matrix.txt')
+    K = read_nums_from_file(camera_matrix_path)
 
     # TODO distortion coefficients
     D = [0.0, 0.0, 0.0, 0.0, 0.0]

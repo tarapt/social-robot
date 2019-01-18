@@ -3,15 +3,15 @@ from scipy import stats
 class DepthEstimator:
     def get_world_coordinates(self, leftLandmarks, rightLandmarks, leftBox):
         # left camera's optical centre coordinates in pixels
-        cx = 324  
-        cy = 234
+        cx = 685
+        cy = 410
 
         # lense focal length in pixels
-        fx = 764
-        fy = 760 			
+        fx = 1458
+        fy = 1462 			
 
         # distance in metres between the two cameras
-        baseline = 0.17 	
+        baseline = 0.15 	
 
         depths = []
         for (p1, p2) in zip(leftLandmarks, rightLandmarks):

@@ -108,11 +108,11 @@ if (not Aria.getConfig().parseFile(configFileName)):
 print "Running..."
 robot.runAsync(1)
 
-robot.lock()
-poseStorage = ArPoseStorage(robot)
-if (poseStorage.restorePose("robotPose")):
-    serverLocHandler.setSimPose(robot.getPose())
-robot.unlock()
+# robot.lock()
+# poseStorage = ArPoseStorage(robot)
+# if (poseStorage.restorePose("robotPose")):
+#     serverLocHandler.setSimPose(robot.getPose())
+# robot.unlock()
 locTask.localizeRobotAtHomeBlocking()
 
 server.runAsync()

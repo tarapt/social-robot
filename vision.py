@@ -31,9 +31,17 @@ import cv2
 import numpy as np
 from head_pose_estimation import HeadPoseEstimator
 from depth_estimation import DepthEstimator
+import face_detection
+import os
 
 dlib_predictor_model_path = "./trained_models/shape_predictor_68_face_landmarks.dat"
 facial_encodings_path = "./trained_models/facial_encodings.pickle"
+CAMERA_WIDTH = 1280 # MAX_CAMERA_WIDTH = 1280
+CAMERA_HEIGHT = 960 # MAX_CAMERA_WIDTH = 960
+
+# Directories to store frames for each camera
+LEFT_PATH = "experiments/{:04d}/{:06d}_left.jpg"
+RIGHT_PATH = "experiments/{:04d}/{:06d}_right.jpg"
 
 # initialize a dictionary that maps strings to their corresponding
 # OpenCV object tracker implementations
@@ -89,6 +97,7 @@ class CameraError(Exception):
 class Vision:
 	def __init__(self, id1=-1, id2=-1):
 		self.setup_cameras(id1, id2)
+		self.increase_resolution()
 
 	def draw_faces(self, stereoFrame, detectedFaces, faceDetector):
 		detections = []
@@ -131,3 +140,92 @@ class Vision:
 		
 		if not self.stereoCamera.isOpened():
 			raise CameraError
+
+	def increase_resolution(self):
+		self.stereoCamera.left.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+		self.stereoCamera.left.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+		self.stereoCamera.right.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+		self.stereoCamera.right.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+		print "CAMERA_WIDTH = " + str(int(self.stereoCamera.left.get(cv2.CAP_PROP_FRAME_WIDTH)))
+		print "CAMERA_HEIGHT = " + str(int(self.stereoCamera.left.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+
+def get_experiment_count():
+	f = open("experiments/experiment_count.txt", "r")
+	return int(f.read())
+
+def increment_experiment_count(experiment_count):
+	f = open("experiments/experiment_count.txt", "w")
+	f.write(str(experiment_count + 1))
+
+if __name__ == '__main__':
+	skipFrames = 0
+	detection_method = 'cnn'
+
+	experiment_count = get_experiment_count()
+
+	format_string = "{:04d}"
+	if not os.path.exists('experiments/' + format_string.format(experiment_count)):
+		os.mkdir('experiments/' + format_string.format(experiment_count))		
+
+	try:
+		robot_vision = Vision(1, 2)
+	except CameraError:
+		print("[ERROR] Cameras couldn't start. Exiting...")
+	else:
+		totalFrames = 0
+		# time.sleep(2.0)
+
+		print("[INFO] Capturing frames...")
+
+		lastKnownLocations = {}
+
+		while True:
+			if not robot_vision.stereoCamera.hasFrames():
+				continue
+			stereoFrame = robot_vision.stereoCamera.retrieve()
+			print("[INFO] Captured frame %d..." % totalFrames)
+
+			# Start timer
+			timer = cv2.getTickCount()
+
+			if totalFrames % (skipFrames + 1) == 0:
+				faceDetector = face_detection.FaceDetector(
+					facial_encodings_path, dlib_predictor_model_path, detection_method)
+				leftBoxes, names = faceDetector.get_faces(stereoFrame.left)
+				rightBoxes, _ = faceDetector.get_faces(stereoFrame.right)
+
+				detected_faces = []
+				for leftBox, rightBox, name in zip(leftBoxes, rightBoxes, names):
+					detected_faces.append(Face(name, leftBox, rightBox))
+
+				stereoFrame, detections = robot_vision.draw_faces(
+					stereoFrame, detected_faces, faceDetector)
+				
+				# TODO: Beware of wrong detections, increase the confidence threshold
+				for person in detections:
+					lastKnownLocations[person['name']] = person
+
+				# Calculate Frames per second (FPS)
+				fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+
+				# Display FPS on frame
+				cv2.putText(stereoFrame.left, "FPS : " + str(int(fps)),
+							(400, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+				cv2.putText(stereoFrame.right, "FPS : " + str(int(fps)),
+							(400, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+
+			cv2.imshow("Left Camera", stereoFrame.left)
+			cv2.imshow("Right Camera", stereoFrame.right)
+
+			# Save the frames
+			cv2.imwrite(LEFT_PATH.format(experiment_count, totalFrames), stereoFrame.left)
+			cv2.imwrite(RIGHT_PATH.format(experiment_count, totalFrames), stereoFrame.right)
+
+			if cv2.waitKey(1) & 0xFF == ord('q'):
+				break
+			totalFrames += 1
+
+		# do a bit of cleanup
+		robot_vision.stereoCamera.release()
+		cv2.destroyAllWindows()
+		increment_experiment_count(experiment_count)

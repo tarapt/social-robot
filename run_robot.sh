@@ -1,1 +1,1 @@
-python main.py --remoteHost 172.16.21.14 --robotPort 8101
+python main2.py --remoteHost 172.16.21.14 --robotPort 8101
