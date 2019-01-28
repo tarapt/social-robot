@@ -42,7 +42,6 @@ def get_position_in_world_coordinates(robot_pose, position_in_robot_coordinates)
     y = r * math.sin(theta1 + theta2)
     return x1 + x, y1 + y
 
-
 def goto_position(robot, x, z, th, pathTask):
     robot.lock()
     currPose = robot.getPose()
@@ -303,7 +302,7 @@ robot.enableMotors()
 get_position(robot)
 time.sleep(10.0)
 
-goto_position(robot, -1.5, 1, 0, pathTask)
+goto_position(robot, 0, 2, -45, pathTask)
 
 time.sleep(40.0)
 get_position(robot)

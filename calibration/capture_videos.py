@@ -14,10 +14,10 @@ right = cv2.VideoCapture(2)
 # increase the resolution
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 960
-left.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-left.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-right.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-right.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+# left.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+# left.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+# right.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+# right.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 
 # Different directories for each camera
 LEFT_PATH = "capture/left/{:06d}.jpg"
@@ -44,8 +44,8 @@ while(True):
         break
 
     # Save the frames
-    cv2.imwrite(LEFT_PATH.format(frameId), leftFrame)
-    cv2.imwrite(RIGHT_PATH.format(frameId), rightFrame)
+    # cv2.imwrite(LEFT_PATH.format(frameId), leftFrame)
+    # cv2.imwrite(RIGHT_PATH.format(frameId), rightFrame)
     frameId += 1
 
 left.release()

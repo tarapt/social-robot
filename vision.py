@@ -202,8 +202,8 @@ if __name__ == '__main__':
 					stereoFrame, detected_faces, faceDetector)
 				
 				# TODO: Beware of wrong detections, increase the confidence threshold
-				for person in detections:
-					lastKnownLocations[person['name']] = person
+				# for person in detections:
+				# 	lastKnownLocations[person['name']] = person
 
 				# Calculate Frames per second (FPS)
 				fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
@@ -218,8 +218,8 @@ if __name__ == '__main__':
 			cv2.imshow("Right Camera", stereoFrame.right)
 
 			# Save the frames
-			cv2.imwrite(LEFT_PATH.format(experiment_count, totalFrames), stereoFrame.left)
-			cv2.imwrite(RIGHT_PATH.format(experiment_count, totalFrames), stereoFrame.right)
+			# cv2.imwrite(LEFT_PATH.format(experiment_count, totalFrames), stereoFrame.left)
+			# cv2.imwrite(RIGHT_PATH.format(experiment_count, totalFrames), stereoFrame.right)
 
 			if cv2.waitKey(1) & 0xFF == ord('q'):
 				break
