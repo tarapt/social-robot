@@ -55,25 +55,31 @@ class FaceDetector:
         landmarks = face_utils.shape_to_np(landmarks)
         return landmarks
 
-    def draw_face_details(self, frame, box, name, landmarks, worldCoordinates):
-        (top, right, bottom, left) = box
-
+    def draw_landmarks(self, frame, landmarks):
         # loop over the (x, y)-coordinates for the facial landmarks
         # and draw them on the image
         for (x, y) in landmarks:
             cv2.circle(frame, (x, y), 1, (0, 0, 255), -1)
+        return frame
 
-        # draw the predicted face name on the image
+    def draw_face_details(self, frame, box, name, worldCoordinates):
+        # draw the bounding box around the face
+        (top, right, bottom, left) = box
         cv2.rectangle(frame, (left, top), (right, bottom),
             (0, 255, 0), 2)
         y = top - 15 if top - 15 > 15 else top + 15
 
-        X, Y, Z = worldCoordinates
+        X = worldCoordinates[0]
+        Y = worldCoordinates[1]
+        Z = worldCoordinates[2]
         float_formatter = lambda x: "%.1f" % x
         depthString = '(' + str(float_formatter(X)) + 'm,' + str(float_formatter(Y)) + 'm,' + str(float_formatter(Z)) + 'm)'
+        
+        # write the predicted face name on the image
         cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX,
             0.75, (0, 255, 0), 2)
+
+        # write the world coordinates of the face
         cv2.putText(frame, depthString, (left, y - 25), cv2.FONT_HERSHEY_SIMPLEX,
             0.75, (0, 255, 0), 2)
-        
         return frame

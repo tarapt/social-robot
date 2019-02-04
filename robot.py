@@ -5,8 +5,10 @@ from ArNetworkingPy import *
 from BaseArnlPy import *
 from SonArnlPy import *
 
+
 class RobotError(Exception):
     pass
+
 
 class RobotController:
     def __init__(self, arg_list):
@@ -34,7 +36,7 @@ class RobotController:
         # Load the configuration. Arnl.getTypicalDefaultParamFileName() returns "params/default-arnl.p".
         configFileName = Arnl.getTypicalParamFileName()
         print "[INFO] Will use config file: ", configFileName
-        
+
         # Load the configuration
         print "[INFO] Loading config file..."
         if (not Aria.getConfig().parseFile(configFileName)):
@@ -54,7 +56,7 @@ class RobotController:
         #     serverLocHandler.setSimPose(self.robot.getPose())
         # robot.unlock()
         self.locTask.localizeRobotAtHomeBlocking()
-        
+
         # # Run the server thread in the background:
         # print "[INFO] Server thread running..."
         # self.server.runAsync()
@@ -63,7 +65,8 @@ class RobotController:
         self.robot.enableMotors()
 
     def pathPlanToPose(self, goal_X, goal_Y, goal_heading):
-        self.pathTask.pathPlanToPose(ArPose(goal_X, goal_Y, goal_heading), True)
+        self.pathTask.pathPlanToPose(
+            ArPose(goal_X, goal_Y, goal_heading), True)
 
     def stopServer(self):
         self.server.close()
@@ -71,7 +74,7 @@ class RobotController:
     # uses: robot, locTask, map, pathTask, gyro
     # make the server for remote clients (e.g. MobileEyes)
     def setup_server(self):
-        self.server= ArServerBase()
+        self.server = ArServerBase()
 
         print "[INFO] Opening server on port 7272..."
         if (not self.server.open(7272)):
@@ -86,13 +89,15 @@ class RobotController:
             self.server, self.robot, self.locTask)
 
         # Allows client to manually trigger relocalization and a given point:
-        serverLocHandler = ArServerHandlerLocalization(self.server, self.robot, self.locTask)
+        serverLocHandler = ArServerHandlerLocalization(
+            self.server, self.robot, self.locTask)
 
         # Provides the map:
         serverMap = ArServerHandlerMap(self.server, self.map)
 
         # Provides the planned path:
-        serverInfoPath = ArServerInfoPath(self.server, self.robot, self.pathTask)
+        serverInfoPath = ArServerInfoPath(
+            self.server, self.robot, self.pathTask)
 
         # Information about the robot:
         serverInfoRobot = ArServerInfoRobot(self.server, self.robot)
@@ -117,7 +122,8 @@ class RobotController:
         # Simple text commands ("custom commands") in MobileEyes):
         commands = ArServerHandlerCommands(self.server)
         uCCommands = ArServerSimpleComUC(commands, self.robot)
-        loggingCommands = ArServerSimpleComMovementLogging(commands, self.robot)
+        loggingCommands = ArServerSimpleComMovementLogging(
+            commands, self.robot)
         gyroCommands = ArServerSimpleComGyro(commands, self.robot, self.gyro)
         configCommands = ArServerSimpleComLogRobotConfig(commands, self.robot)
         serverInfoPath.addControlCommands(commands)
@@ -156,19 +162,19 @@ class RobotController:
 #     robotController = RobotController(sys.argv)
 #     robot = robotController.robot
 #     pathTask = robotController.pathTask
-    
+
 #     x, y, th = get_position(robot)
 
 #     # pathTask.startPathPlanToLocalPose(True)
 
 #     pathTask.pathPlanToPose(ArPose(x + 1000, y, 90), True)
-    
+
 #     state = pathTask.getState()
 #     while(state != ArPathPlanningInterface.REACHED_GOAL):
 #         x, y, th = get_position(robot)
 #         state = pathTask.getState()
 #         time.sleep(1)
-    
+
 #     pathTask.pathPlanToPose(ArPose(x, y + 500, 0), True)
 #     while(state != ArPathPlanningInterface.REACHED_GOAL):
 #         state = pathTask.getState()

@@ -1,3 +1,5 @@
 calibration/capture/
 experiments/
+static_data/
+__pycache__/
 *.pyc
