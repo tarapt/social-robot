@@ -5,6 +5,8 @@ class DepthEstimator:
         self.confidenceThreshold = confidenceThreshold
     
     def get_world_coordinates(self, leftPoints, rightPoints):
+        if(leftPoints.size == 0 or rightPoints.size == 0):
+            return []
         # left camera's optical centre coordinates in pixels
         cx = 685
         cy = 410
@@ -20,7 +22,7 @@ class DepthEstimator:
         for (p1, p2) in zip(leftPoints, rightPoints):
             (x1, y1, c1) = p1
             (x2, y2, c2) = p2
-            if c1 > confidenceThreshold and c2 > confidenceThreshold:
+            if c1 > self.confidenceThreshold and c2 > self.confidenceThreshold:
                 disparity = abs(x1 - x2)
                 if disparity > 0:
                     z = (fx * baseline) / disparity

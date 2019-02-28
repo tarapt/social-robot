@@ -36,10 +36,12 @@ faces = np.array(pose['face'])
 left_hand = np.array(pose['left_hand'])
 right_hand = np.array(pose['right_hand'])
 
+print("shapes...")
 print (np.shape(bodies))
 print (np.shape(faces))
 print (np.shape(left_hand))
 print (np.shape(right_hand))
+print(".............")
 
 mean_faces = get_mean_face_position(faces)
 

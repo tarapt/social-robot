@@ -1,37 +1,46 @@
-
 Todo: 
-Simplification Advice:
-  ✔ Ignore head pose at present, until distance is getting measured accurately. Later add them back. @done(19-02-04 19:12)
-  ☐ Remove face recognition since it depends on GPU. Just test whether depth estimation works or not. @started(19-02-04 19:13)
-  ☐ @Warning Assume that the body, face and hand points from openpose occour at the same index for a given person.
+Aria module:
+  Good to have:
+    ✔ Elegantly stop the robot @done(19-02-06 16:51)
+    ☐ Check for Goal Reached or failed before stop running, instead of sleeping
+    ☐ Organize code, moving the arnl code into a separate function does not work, it has to be from the main function
 
-Critical Issues:
-  ☐ OpenPose consumes huge GPU memory. So, need to remove all other dependencies on GPU, like dlib for face recognition. @started(19-02-04 19:14)
-  ☐ For proper depth estimation, implement camera calibration followed by stereo rectification. Use Matlab examples to learn the process. Except StereoBM, try to get the whole pipeline done. Like use the triangulate function from Matlab.
+Vision Module:
+  Simplification Advice:
+    ✔ Ignore head pose at present, until distance is getting measured accurately. Later add them back. @done(19-02-04 19:12)
+    ☐ Remove face recognition since it depends on GPU. Just test whether depth estimation works or not. @started(19-02-04 19:13)
+    ☐ @Warning Assume that the body, face and hand points from openpose occour at the same index for a given person.
+    ☐ @BoundingBoxProblem Obtain face bounding box from the facial landmarks, then use it for face recognition
 
-Good to have:
-  ☐ Use the C++ API for openpose, to get the full person json https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/output.md. But problem may arise when rest server gets implemented. Actually it should work fine, if requests library gets used instead of the flask rest client
-  ☐ In C++ openpose, check the openpose.forward() function, if its different from the datum object. https://medium.com/pixel-wise/real-time-pose-estimation-in-webcam-using-openpose-python-2-3-opencv-91af0372c31c
-  ☐ Write a script for automatic calibration every time the cameras are started. Use the calibrated results in the code, not the hardcoded values for camera matrix.
-  ☐ Install OpenCV 3.4.2 to remove dependency on anaconda's python interpreter (not important)
-  ☐ Implement Body Pose Tracking (just the skeleton), in order to avoid recognition in successive frames and also to aid in recognition when the face isn't visible. https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/15 has a custom algorithm. Either use a popular tracking algorithm or understand those algorithms and implement to need.  
-  ☐ Use OpenPose FaceDetection if possible, https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/93 May need to use python for that.
+  Critical Issues:
+    ☐ OpenPose consumes huge GPU memory. So, need to remove all other dependencies on GPU, like dlib for face recognition. @started(19-02-04 19:14)
+    ☐ For proper depth estimation, implement camera calibration followed by stereo rectification. Use Matlab examples to learn the process. Except StereoBM, try to get the whole pipeline done. Like use the triangulate function from Matlab.
+    ☐ What to do if number of people detected in both the cameras do not match, is the assumption (the one with the warning) about openpose ordering still valid
+
+  Good to have:
+    ☐ Use the C++ API for openpose, to get the full person json https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/output.md. But problem may arise when rest server gets implemented. Actually it should work fine, if requests library gets used instead of the flask rest client
+    ☐ In C++ openpose, check the openpose.forward() function, if its different from the datum object. https://medium.com/pixel-wise/real-time-pose-estimation-in-webcam-using-openpose-python-2-3-opencv-91af0372c31c
+    ☐ Write a script for automatic calibration every time the cameras are started. Use the calibrated results in the code, not the hardcoded values for camera matrix.
+    ☐ Install OpenCV 3.4.2 to remove dependency on anaconda's python interpreter (not important)
+    ☐ Implement Body Pose Tracking (just the skeleton), in order to avoid recognition in successive frames and also to aid in recognition when the face isn't visible. https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/15 has a custom algorithm. Either use a popular tracking algorithm or understand those algorithms and implement to need. Check PoseTrack dataset and papers which solve it (check chrome bookmarks). @PoseFlow or @AlphaPose
+    ☐ Use OpenPose FaceDetection if possible, https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/93 May need to use python for that.
+    ☐ @BoundingBoxProblem Modify openpose.py https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/93
+
+  Performance Improvement:
+    ☐ Implement SVM for face recognition from https://krasserm.github.io/2018/02/07/deep-face-recognition/
+    ☐ Create another environment to replace anaconda environment py27-ARNL, uninstall anaconda. To get rid of I/O delay added due to the Flask server.
+    ☐ Use PNG images for calibration, they are lossless
+    ☐ Only use those points for depth estimation, which are detected in both the images with high confidence
+    ☐ Use the facial keypoints from the body to get the mean face position. Using facial landmarks is computationally expensive.
+
+  UI Improvement:
+    ☐ Use the code given in https://github.com/ageitgey/face_recognition i.e, https://github.com/ageitgey/face_recognition/blob/master/examples/facerec_from_webcam_faster.py to write the names of the people under their detected faces
+    ☐ GUI: to select the person to approach
 
   ☐ Since the depth is calculated from the whole body, don't take mean of z values, as the x and y distances may vary significantly. Calculate the x, y, z value for each of the detected pose points. Then take the mean of x, mean of y, mean of z separately.
   ☐ Face landmark detection is very slow, mentioned in flags.hpp. So, try to use body pose for euler angles.
   ☐ Use the face detection from OpenPose, for body recognition, to establish connection between a person and his face and body. Until then, use the mean of the faces from face_detection modules to find the connection using the nearest mean 
   ☐ Use only the points obtained from OpenPose with confidence > 0.5 to calculate distance, don't use the facial landmarks calculated earlier
-
-Performance Improvement:
-  ☐ Implement SVM for face recognition from https://krasserm.github.io/2018/02/07/deep-face-recognition/
-  ☐ Create another environment to replace anaconda environment py27-ARNL, uninstall anaconda. To get rid of I/O delay added due to the Flask server.
-  ☐ Use PNG images for calibration, they are lossless
-  ☐ Only use those points for depth estimation, which are detected in both the images with high confidence
-  ☐ Use the facial keypoints from the body to get the mean face position. Using facial landmarks is computationally expensive.
-
-UI Improvement:
-  ☐ Use the code given in https://github.com/ageitgey/face_recognition i.e, https://github.com/ageitgey/face_recognition/blob/master/examples/facerec_from_webcam_faster.py to write the names of the people under their detected faces
-  ☐ GUI: to select the person to approach
 
 Archive:
   ✔ Match the keypoints from the left and right faces through face recognition only @done(19-02-04 15:29) @project(Todo)

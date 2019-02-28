@@ -35,8 +35,6 @@ import face_detection
 import os
 import requests
 
-dlib_predictor_model_path = "./trained_models/shape_predictor_68_face_landmarks.dat"
-facial_encodings_path = "./trained_models/facial_encodings.pickle"
 CAMERA_WIDTH = 1280  # MAX_CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 960  # MAX_CAMERA_HEIGHT = 960
 
@@ -67,9 +65,8 @@ POSE_DETECTION_URL = "http://localhost:5000/get_pose"
 
 
 class Person:
-    def __init__(self, name, faceBBox, faceLandmarks, body, leftHand, rightHand):
+    def __init__(self, faceLandmarks, body, leftHand=None, rightHand=None, name="unknown"):
         self.name = name
-        self.faceBBox = faceBBox
         self.faceLandmarks = faceLandmarks
         self.body = body
         self.leftHand = leftHand
@@ -77,7 +74,7 @@ class Person:
 
 
 class StereoPerson:
-    def __init__(self, name, leftPerson, rightPerson):
+    def __init__(self, leftPerson, rightPerson, name="unknown"):
         self.name = name
         self.left = leftPerson
         self.right = rightPerson
@@ -121,7 +118,48 @@ class Vision:
         if increaseResolution == True:
             self.increase_resolution()
 
-    def draw_faces(self, stereoFrame, detectedStereoPersons, faceDetector):
+    def draw_landmarks(self, frame, landmarks):
+        # loop over the (x, y)-coordinates for the facial landmarks
+        # and draw them on the image
+        for (x, y) in landmarks:
+            cv2.circle(frame, (x, y), 1, (0, 0, 255), -1)
+        return frame
+
+    def get_formatted_distance(self, worldCoordinates):
+        X = worldCoordinates[0]
+        Y = worldCoordinates[1]
+        Z = worldCoordinates[2]
+        float_formatter = lambda x: "%.1f" % x
+        depthString = '(' + str(float_formatter(X)) + 'm,' + str(float_formatter(Y)) + 'm,' + str(float_formatter(Z)) + 'm)'
+        return depthString
+
+    def draw_face_bounding_box_with_details(self, frame, box, name, worldCoordinates):
+        # draw the bounding box around the face
+        (top, right, bottom, left) = box
+        cv2.rectangle(frame, (left, top), (right, bottom),
+            (0, 255, 0), 2)
+        y = top - 15 if top - 15 > 15 else top + 15
+        # write the predicted face name on the image
+        cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX,
+            0.75, (0, 255, 0), 2)
+        
+        depthString = self.get_formatted_distance(worldCoordinates)
+        # write the world coordinates of the face
+        cv2.putText(frame, depthString, (left, y - 25), cv2.FONT_HERSHEY_SIMPLEX,
+            0.75, (0, 255, 0), 2)
+        return frame
+
+    def draw_face_details_without_bounding_box(self, frame, name, worldCoordinates):
+        depthString = self.get_formatted_distance(worldCoordinates)
+        top = 100
+        left = 100
+        y = top - 15 if top - 15 > 15 else top + 15
+        # write the world coordinates of the face
+        cv2.putText(frame, depthString, (left, y - 25), cv2.FONT_HERSHEY_SIMPLEX,
+            0.75, (0, 255, 0), 2)
+        return frame
+
+    def calculate_distances(self, stereoFrame, detectedStereoPersons):
         detections = []
         for stereoPerson in detectedStereoPersons:
             # leftLandmarks = faceDetector.get_landmarks(stereoFrame.left, face.leftBBox)
@@ -138,26 +176,39 @@ class Vision:
                 stereoPerson.left.body, stereoPerson.right.body)
             faceCoordinates = depthEstimator.get_world_coordinates(
                 stereoPerson.left.faceLandmarks, stereoPerson.right.faceLandmarks)
-            leftHandCoordinates = depthEstimator.get_world_coordinates(
-                stereoPerson.left.leftHand, stereoPerson.right.leftHand)
-            rightHandCoordinates = depthEstimator.get_world_coordinates(
-                stereoPerson.left.rightHand, stereoPerson.right.rightHand)
+            # leftHandCoordinates = depthEstimator.get_world_coordinates(
+            #     stereoPerson.left.leftHand, stereoPerson.right.leftHand)
+            # rightHandCoordinates = depthEstimator.get_world_coordinates(
+            #     stereoPerson.left.rightHand, stereoPerson.right.rightHand)
 
-            personCoordinates = np.concatenate(
-                (bodyCoordinates, faceCoordinates, leftHandCoordinates, rightHandCoordinates), axis=0)
+            # print(np.shape(bodyCoordinates))
+            # print(np.shape(faceCoordinates))
+            # print(np.shape(leftHandCoordinates))
+            # print(np.shape(rightHandCoordinates))
+
+            # check for empty array, don't concatenate them
+            personCoordinates = np.array([]).reshape(0,3)
+            if bodyCoordinates.size != 0:
+                personCoordinates = np.vstack([personCoordinates, bodyCoordinates])
+            if faceCoordinates.size != 0:
+                personCoordinates = np.vstack([personCoordinates, faceCoordinates])
+            # if leftHandCoordinates.size != 0:
+            #     personCoordinates = np.vstack([personCoordinates, leftHandCoordinates])
+            # if rightHandCoordinates.size != 0:
+            #     personCoordinates = np.vstack([personCoordinates, rightHandCoordinates])
 
             # Compute mean of all coordinates
-            personPosition = np.mean(personCoordinates, axis=0).tolist()
+            personPosition = np.mean(personCoordinates, axis=0)
 
             # detections.append({'name': face.name, 'position' : list(worldCoordinates), 'theta': euler_angle_L.tolist()})
             detections.append({'name': stereoPerson.name,
                                'position': personPosition.tolist()})
 
             # update the frames with the new information of the person
-            stereoFrame.left = faceDetector.draw_face_details(
-                stereoFrame.left, stereoPerson.left.faceBBox, stereoPerson.name, personPosition)
-            stereoFrame.right = faceDetector.draw_face_details(
-                stereoFrame.right, stereoPerson.left.faceBBox, stereoPerson.name, personPosition)
+            stereoFrame.left = self.draw_face_details_without_bounding_box(
+                stereoFrame.left, stereoPerson.name, personPosition)
+            stereoFrame.right = self.draw_face_details_without_bounding_box(
+                stereoFrame.right, stereoPerson.name, personPosition)
         return stereoFrame, detections
 
     def setup_cameras(self, id1=-1, id2=-1, max_trials=10):
@@ -184,8 +235,8 @@ class Vision:
         self.stereoCamera.left.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
         self.stereoCamera.right.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
         self.stereoCamera.right.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-        # print "CAMERA_WIDTH = " + str(int(self.stereoCamera.left.get(cv2.CAP_PROP_FRAME_WIDTH)))
-        # print "CAMERA_HEIGHT = " + str(int(self.stereoCamera.left.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        print "CAMERA_WIDTH = " + str(int(self.stereoCamera.left.get(cv2.CAP_PROP_FRAME_WIDTH)))
+        print "CAMERA_HEIGHT = " + str(int(self.stereoCamera.left.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
 
 def get_experiment_count():
@@ -211,10 +262,9 @@ def get_poses(stereoFrame):
     right_poses = response_right.json()
     return stereoFrame, left_poses, right_poses
 
-# find the closest point (Euclidean distance) from a list of points
-
 
 def get_closest_face(face, faces):
+    # finds the closest point (Euclidean distance) from a list of points
     faces = np.asarray(faces)
     dist_2 = np.sum((faces - face)**2, axis=1)
     return np.argmin(dist_2)
@@ -232,42 +282,65 @@ def get_mean_face_position(face):
         mean_face = np.rint(mean_face)  # round to integer
     return mean_face
 
-
-def recognize_poses(leftPoses, rightPoses, leftBoxes, leftNames, rightBoxes, rightNames, commonFaces):
+def recognize_poses(leftPoses, rightPoses):
     leftFaces = leftPoses['face']
     rightFaces = rightPoses['face']
     leftBodies = leftPoses['body']
     rightBodies = rightPoses['body']
-    leftLeftHands = leftPoses['left_hand']
-    leftRightHands = leftPoses['right_hand']
-    rightLeftHands = rightPoses['left_hand']
-    rightRightHands = rightPoses['right_hand']
+    # leftLeftHands = leftPoses['left_hand']
+    # leftRightHands = leftPoses['right_hand']
+    # rightLeftHands = rightPoses['left_hand']
+    # rightRightHands = rightPoses['right_hand']
 
-    numPersons = len(leftFaces)
+    # no something is not detected, their type will be float
+    if type(leftBodies) is float:
+        leftBodies = np.array([])
+    if type(rightBodies) is float:
+        rightBodies = np.array([])    
+    if type(leftFaces) is float:
+        leftFaces = np.array([])
+    if type(rightFaces) is float:
+        rightFaces = np.array([])
+    # if type(leftLeftHands) is float:
+    #     leftLeftHands = np.array([])
+    # if type(leftRightHands) is float:
+    #     leftRightHands = np.array([])
+    # if type(rightLeftHands) is float:
+    #     rightRightHands = np.array([])
+
+    leftFaces = np.array(leftFaces)
+    rightFaces = np.array(rightFaces)
+    leftBodies = np.array(leftBodies)
+    rightBodies = np.array(rightBodies)
+    # leftLeftHands = np.array(leftLeftHands)
+    # leftRightHands = np.array(leftRightHands)
+    # rightLeftHands = np.array(rightLeftHands)
+    # rightRightHands = np.array(rightRightHands)
+
+    print("Shapes...")
+    # print(np.shape(leftFaces))
+    # print(np.shape(rightFaces))
+    # print(np.shape(leftBodies))
+    # print(np.shape(rightBodies))
+    # print(np.shape(leftLeftHands))
+    # print(np.shape(rightLeftHands))
+    # print(np.shape(leftRightHands))
+    # print(np.shape(rightRightHands))
+    print("...")                  
+
+    # TODO what to do if number of people detected in both the cameras do not match
+    numLeftPersons = max(len(leftFaces), len(leftBodies))
+    numRightPersons = max(len(rightFaces), len(rightBodies))
+    print(str(numLeftPersons) + " people detected in left...")
+    print(str(numRightPersons) + " people detected in right...")
+    numPersons = min(numLeftPersons, numRightPersons)
+
     detectedPersons = []  # persons detected in both cameras
-    leftPoseMap = {}
-
     for i in range(numPersons):
-        face = leftFaces[i]
-        position = get_mean_face_position(face)
-        faceId = get_closest_face(face, leftBoxes)
-        name = leftNames[faceId]
-        if(commonFaces.get() != None):
-            leftPoseMap[name] = Person(
-                name, leftBoxes[faceId], face, leftBodies[i], leftLeftHands[i], leftRightHands[i])
-
-    for i in range(numPersons):
-        face = rightFaces[i]
-        position = get_mean_face_position(face)
-        faceId = get_closest_face(face, rightBoxes)
-        name = rightNames[faceId]
-        if(commonFaces.get(name) != None and leftPoseMap.get(name) != None):
-            leftPerson = leftPoseMap.get(name)
-            rightPerson = Person(
-                name, rightBoxes[faceId], face, rightBodies[i], rightLeftHands[i], rightRightHands[i])
-            detectedPersons.append(StereoPerson(name, leftPerson, rightPerson))
+        leftPerson = Person(leftFaces[i], leftBodies[i])
+        rightPerson = Person(rightFaces[i], rightBodies[i])
+        detectedPersons.append(StereoPerson(leftPerson, rightPerson))
     return detectedPersons
-
 
 if __name__ == '__main__':
     skipFrames = 0
@@ -280,7 +353,7 @@ if __name__ == '__main__':
     #     os.mkdir('experiments/' + format_string.format(experiment_count))
 
     try:
-        robot_vision = Vision(0, 2, increaseResolution)
+        robot_vision = Vision(increaseResolution, 1, 2)
     except CameraError:
         print("[ERROR] Cameras couldn't start. Exiting...")
     else:
@@ -318,11 +391,13 @@ if __name__ == '__main__':
                 #         commonFaces[rightName] = [
                 #             leftFaces[rightName], rightBBox]
 
-                # detectedStereoPersons = recognize_poses(
-                #     leftPoses, rightPoses, leftBoxes, leftNames, rightBoxes, rightNames, commonFaces)
+                detectedStereoPersons = recognize_poses(leftPoses, rightPoses)
 
-                # stereoFrame, detections = robot_vision.draw_faces(
-                #     stereoFrame, detectedStereoPersons, faceDetector)
+                stereoFrame, detections = robot_vision.calculate_distances(
+                    stereoFrame, detectedStereoPersons)
+                
+                print("Detections:")
+                print(detections)
 
                 # Calculate Frames per second (FPS)
                 fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)

@@ -30,8 +30,8 @@ def get_pose():
 # Custom Params (refer to include/openpose/flags.hpp for more parameters)
 params = dict()
 params["model_folder"] = "/home/tara/Project/openpose/models/"
-# params["face"] = True
-# params["hand"] = True
+params["face"] = True
+params["hand"] = True
 
 # Starting OpenPose
 opWrapper = op.WrapperPython()
