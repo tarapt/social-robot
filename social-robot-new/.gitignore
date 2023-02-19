@@ -1,0 +1,5 @@
+experiments/
+src/vision/static_data/
+trained_models/
+__pycache__/
+*.pyc
