@@ -14,7 +14,7 @@ Jinja2==2.10
 MarkupSafe==1.1.1
 numpy==1.16.2
 pep8==1.7.1
-Pillow==5.4.1
+Pillow==10.0.1
 pycodestyle==2.5.0
 pygubu==0.9.8.2
 requests==2.21.0
